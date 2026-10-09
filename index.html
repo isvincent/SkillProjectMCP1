@@ -1,0 +1,1006 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI 工具三大核心</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=LXGW+WenKai+TC:wght@400;700&family=Noto+Sans+TC:wght@400;500;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: a dark projection-screen stage, one scene at a time, auto-advancing; caption + transport dock pinned below.
+   Each concept owns one hue everywhere: Skill amber, Project cobalt, MCP teal. Single dark look by design. */
+:root{
+  --bg:#0c1322; --bg2:#111b2f; --panel:#15213a; --panel2:#1b2a48; --line:#2a3b61;
+  --fg:#edf2fb; --muted:#9fb0cf; --dim:#6f82a6;
+  --skill:#f6a830; --project:#5b95ff; --mcp:#2fd0b0; --warn:#ff6f5e; --ok:#58d68d;
+  --f-display:"Bricolage Grotesque","LXGW WenKai TC","Noto Sans TC",system-ui,sans-serif;
+  --f-hand:"LXGW WenKai TC","Noto Sans TC",system-ui,sans-serif;
+  --f-body:"Noto Sans TC","Microsoft JhengHei",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+  --ease:cubic-bezier(.2,.9,.25,1);
+  color-scheme:dark;
+}
+html,body{background:var(--bg);color:var(--fg)}
+body{margin:0;font-family:var(--f-body);font-size:16px;line-height:1.6;padding-inline:16px;padding-block:0;overflow-x:hidden}
+#fx{position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;opacity:.55}
+.wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding-block:14px 190px}
+
+/* top bar */
+.top{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 16px;padding-block:6px 14px;border-bottom:1px solid var(--line)}
+.brand{font-family:var(--f-hand);font-size:1rem;color:var(--muted)}
+.brand b{color:var(--fg);font-weight:700}
+.chaps{display:flex;flex-wrap:wrap;gap:6px}
+.chaps button{font:500 .85rem var(--f-body);color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:999px;padding:4px 12px;cursor:pointer;transition:all .3s}
+.chaps button:hover{color:var(--fg);border-color:var(--dim)}
+.chaps button.cur{color:var(--bg);background:var(--c,var(--fg));border-color:var(--c,var(--fg))}
+.chaps button:focus-visible,.dock button:focus-visible,.seg:focus-visible,.opt:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+
+/* concept colour helpers */
+.k-skill{--c:var(--skill)} .k-project{--c:var(--project)} .k-mcp{--c:var(--mcp)} .k-warn{--c:var(--warn)} .k-ok{--c:var(--ok)}
+
+/* stage & scenes */
+.stage{position:relative;min-height:560px;padding-block:26px 10px}
+.scene{display:flex;flex-direction:column;gap:22px}
+.scene[hidden]{display:none!important}
+.scene.on{animation:sceneIn .8s var(--ease) both}
+@keyframes sceneIn{from{opacity:0;transform:translateY(14px) scale(.985);filter:blur(6px)}to{opacity:1;transform:none;filter:none}}
+.narr{display:none}
+.eyebrow{font:700 .78rem var(--f-mono);letter-spacing:.14em;text-transform:uppercase;color:var(--c,var(--muted));display:flex;align-items:center;gap:10px}
+.eyebrow::before{content:"";width:28px;height:2px;background:currentColor}
+h1,h2{font-family:var(--f-display);font-weight:800;line-height:1.15;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font-size:clamp(1.55rem,3.3vw,2.5rem)}
+h2 em,h1 em{font-style:normal;color:var(--c,var(--skill))}
+.lead{font-family:var(--f-hand);font-size:clamp(1.05rem,1.8vw,1.3rem);color:var(--muted);margin:0;max-width:62ch}
+.lead strong{color:var(--fg)}
+.note{font-size:.8rem;color:var(--dim);margin:0}
+svg.i{width:1.4em;height:1.4em;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* animation primitives: .a elements get staggered delays from JS */
+.a{opacity:0}
+.scene.on .a{animation:up .8s var(--ease) var(--d,0s) both}
+.scene.on .a.pop{animation-name:pop}
+.scene.on .a.fl{animation-name:fromL}
+.scene.on .a.fr{animation-name:fromR}
+.scene.on .a.fb{animation-name:fromB}
+.scene.on .a.flip{animation-name:flip;animation-duration:.9s}
+.scene.on .a.grow{animation-name:grow;animation-duration:.7s}
+.scene.on .a.fade{animation-name:fade}
+@keyframes up{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes pop{0%{opacity:0;transform:scale(.55)}65%{opacity:1;transform:scale(1.06)}100%{opacity:1;transform:none}}
+@keyframes fromL{from{opacity:0;transform:translateX(-70px) rotate(-6deg)}to{opacity:1;transform:none}}
+@keyframes fromR{from{opacity:0;transform:translateX(70px) rotate(6deg)}to{opacity:1;transform:none}}
+@keyframes fromB{from{opacity:0;transform:translateY(80px)}to{opacity:1;transform:none}}
+@keyframes flip{from{opacity:0;transform:perspective(900px) rotateY(-75deg)}to{opacity:1;transform:none}}
+@keyframes grow{from{opacity:0;transform:scaleX(0)}to{opacity:1;transform:none}}
+.stage.paused *,.stage.paused *::before,.stage.paused *::after{animation-play-state:paused!important}
+
+/* generic card */
+.card{background:linear-gradient(160deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:14px;padding:18px;min-width:0}
+.card.tint{border-color:color-mix(in srgb,var(--c) 55%,var(--line));background:linear-gradient(160deg,color-mix(in srgb,var(--c) 14%,var(--panel2)),var(--panel))}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:stretch}
+
+/* title scene */
+.s-title{align-items:center;text-align:center;padding-block:18px}
+.s-title .eyebrow{justify-content:center}
+.s-title .eyebrow::after{content:"";width:28px;height:2px;background:currentColor}
+.s-title h1{font-size:clamp(2.4rem,7vw,5rem)}
+.s-title h1 em{background:linear-gradient(90deg,var(--skill),var(--project),var(--mcp));-webkit-background-clip:text;background-clip:text;color:transparent}
+.trio{display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;margin-block:10px}
+.tile{width:clamp(150px,22vw,220px);aspect-ratio:1;max-width:100%;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+  background:radial-gradient(120% 90% at 30% 15%,color-mix(in srgb,var(--c) 40%,var(--panel2)),var(--panel) 70%);border:2px solid var(--c);
+  box-shadow:0 0 0 0 var(--c),0 20px 50px -20px color-mix(in srgb,var(--c) 70%,transparent)}
+.scene.on .tile{animation-fill-mode:both}
+.tile svg.i{width:56px;height:56px;color:var(--c)}
+.tile b{font:800 clamp(1.4rem,2.6vw,2rem) var(--f-display)}
+.tile span{font-family:var(--f-hand);color:var(--muted)}
+.tile small{font-size:.82rem;color:var(--c);font-weight:700}
+.join{width:clamp(18px,4vw,56px);height:6px;border-radius:3px;background:linear-gradient(90deg,var(--skill),var(--project),var(--mcp));transform-origin:left}
+.byline{font-family:var(--f-hand);color:var(--dim);margin:0}
+.glow{animation:glow 3.2s ease-in-out infinite}
+@keyframes glow{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--c) 0%,transparent),0 20px 50px -20px color-mix(in srgb,var(--c) 70%,transparent)}50%{box-shadow:0 0 34px 2px color-mix(in srgb,var(--c) 45%,transparent),0 20px 50px -20px color-mix(in srgb,var(--c) 70%,transparent)}}
+
+/* pillars */
+.pillar{display:flex;flex-direction:column;gap:12px}
+.pillar .hd{display:flex;align-items:center;gap:12px}
+.pillar .hd svg.i{width:46px;height:46px;color:var(--c);padding:8px;border-radius:12px;background:color-mix(in srgb,var(--c) 18%,transparent)}
+.pillar h3{margin:0;font:800 1.5rem var(--f-display)}
+.pillar h3 small{display:block;font:500 .85rem var(--f-body);color:var(--muted)}
+.meta{font-family:var(--f-hand);font-size:1.15rem;color:var(--c);margin:0}
+ul.dots{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+ul.dots li{display:flex;gap:9px;align-items:baseline}
+ul.dots li::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c,var(--muted));flex:none;transform:translateY(-2px)}
+.ans{margin-top:auto;font-weight:700;border-top:1px dashed var(--line);padding-top:10px}
+.ans span{color:var(--c)}
+
+/* equation strip */
+.eqs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.eq{font:800 clamp(1.2rem,2.4vw,1.75rem) var(--f-display);text-align:center;padding:16px 10px;border-radius:14px;color:var(--c);background:color-mix(in srgb,var(--c) 12%,var(--panel));border:1px solid color-mix(in srgb,var(--c) 40%,transparent)}
+.tbl-wrap{overflow-x:auto;border-radius:14px;border:1px solid var(--line)}
+table.cmp{border-collapse:collapse;width:100%;min-width:560px;font-size:.95rem}
+table.cmp th,table.cmp td{padding:12px 14px;text-align:left;border-bottom:1px solid var(--line)}
+table.cmp thead th{font:800 1.05rem var(--f-display)}
+table.cmp thead th.k-skill,table.cmp thead th.k-project,table.cmp thead th.k-mcp{color:var(--c)}
+table.cmp tbody th{color:var(--muted);font-weight:500;white-space:nowrap}
+table.cmp tr:last-child>*{border-bottom:0}
+.motto{display:flex;flex-wrap:wrap;gap:10px}
+.motto div{flex:1 1 220px;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
+.motto b{color:var(--c);font-family:var(--f-display)}
+
+/* fan diagram: inputs -> hub -> outputs */
+.fan{display:grid;grid-template-columns:minmax(0,1fr) 70px auto 70px minmax(0,1fr);align-items:center;gap:8px}
+.fan .col{display:flex;flex-direction:column;gap:10px}
+.pill{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-weight:500}
+.pill svg.i{color:var(--c,var(--muted))}
+.wires{display:flex;flex-direction:column;justify-content:center;gap:26px;height:100%}
+.hub{width:clamp(150px,18vw,190px);aspect-ratio:1;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center;
+  background:radial-gradient(circle at 35% 30%,color-mix(in srgb,var(--c) 45%,var(--panel2)),var(--panel) 72%);border:2px solid var(--c);position:relative}
+.hub::after{content:"";position:absolute;inset:-10px;border-radius:50%;border:2px solid var(--c);opacity:0;animation:ring 2.6s ease-out infinite}
+@keyframes ring{0%{opacity:.7;transform:scale(.9)}100%{opacity:0;transform:scale(1.25)}}
+.hub svg.i{width:46px;height:46px;color:var(--c)}
+.hub b{font:800 1.25rem var(--f-hand)}
+.hub small{color:var(--muted);font-size:.8rem}
+
+/* animated arrow */
+.arw{position:relative;height:3px;min-width:26px;flex:1;border-radius:2px;background:linear-gradient(90deg,color-mix(in srgb,var(--c,var(--dim)) 15%,transparent),var(--c,var(--dim)));transform-origin:left}
+.arw::before{content:"";position:absolute;right:-2px;top:50%;width:9px;height:9px;border-top:3px solid var(--c,var(--dim));border-right:3px solid var(--c,var(--dim));transform:translateY(-50%) rotate(45deg)}
+.arw::after{content:"";position:absolute;top:50%;left:0;width:10px;height:10px;margin-top:-5px;border-radius:50%;background:var(--c,var(--fg));box-shadow:0 0 12px var(--c,var(--fg));animation:runX 1.6s linear infinite}
+@keyframes runX{from{left:0;opacity:0}15%{opacity:1}85%{opacity:1}to{left:calc(100% - 10px);opacity:0}}
+
+/* steps */
+ol.steps{list-style:none;margin:0;padding:0;display:flex;align-items:stretch;gap:0}
+ol.steps>li{flex:1 1 0;min-width:0;display:flex;align-items:center}
+ol.steps>li:not(:last-child)::after{content:"";width:26px;flex:none;height:3px;margin-inline:4px;background:linear-gradient(90deg,transparent,var(--c,var(--dim)))}
+.step{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:12px;background:var(--panel);border:1px solid var(--line);position:relative}
+.step .n{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font:700 .95rem var(--f-mono);color:var(--bg);background:var(--c,var(--fg))}
+.step b{font-size:1.02rem}
+.step span{font-size:.85rem;color:var(--muted)}
+.scene.on .step .n{animation:tick .6s var(--ease) calc(var(--d,0s) + .35s) both}
+@keyframes tick{from{transform:scale(0) rotate(-120deg)}to{transform:none}}
+
+/* folder graphic */
+.folder{position:relative;border-radius:6px 14px 14px 14px;padding:22px 18px 18px;background:color-mix(in srgb,var(--c) 16%,var(--panel));border:2px solid var(--c);margin-top:18px}
+.folder::before{content:attr(data-tab);position:absolute;left:-2px;top:-30px;height:28px;padding:0 16px;display:flex;align-items:center;border:2px solid var(--c);border-bottom:0;border-radius:10px 10px 0 0;background:color-mix(in srgb,var(--c) 30%,var(--panel));font:700 .85rem var(--f-mono);color:var(--fg)}
+.file{display:flex;gap:14px;align-items:flex-start;padding:14px;border-radius:10px;background:var(--bg2);border:1px solid var(--line)}
+.file .doc{font:700 .9rem var(--f-mono);color:var(--c);padding:22px 12px;border:2px solid var(--c);border-radius:4px 14px 4px 4px;flex:none}
+.file ul{margin:0}
+.attach{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.attach span{display:flex;align-items:center;gap:6px;font-size:.85rem;padding:6px 10px;border-radius:8px;border:1px dashed var(--dim);color:var(--muted)}
+
+.when{display:flex;flex-direction:column;gap:10px}
+.when .card{display:flex;gap:14px;align-items:center;padding:14px}
+.when .card svg.i{width:40px;height:40px;color:var(--c);flex:none}
+.when b{display:block}
+.when span{color:var(--muted);font-size:.9rem}
+.split{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:start}
+
+/* example pipeline */
+.example{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:14px 16px;border-radius:14px;background:var(--bg2);border:1px solid var(--line)}
+.example .tag{font:700 .8rem var(--f-mono);letter-spacing:.08em;color:var(--bg);background:var(--c);padding:4px 10px;border-radius:6px}
+.example .arw{flex:0 0 34px}
+.example span.q{font-family:var(--f-hand);font-size:1.05rem}
+.formula{display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-weight:700}
+.formula .lhs{font:800 1.3rem var(--f-display);color:var(--c)}
+.formula .t{padding:8px 14px;border-radius:999px;background:color-mix(in srgb,var(--c) 15%,var(--panel));border:1px solid color-mix(in srgb,var(--c) 45%,transparent)}
+.formula .plus{color:var(--dim)}
+
+/* platform cards */
+.plat{display:flex;flex-direction:column;gap:10px}
+.plat h3{margin:0;font:800 1.25rem var(--f-display);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.badge{font:700 .78rem var(--f-body);padding:4px 10px;border-radius:999px;white-space:nowrap}
+.badge.yes{color:#08281a;background:var(--ok)}
+.badge.no{color:#2e0905;background:var(--warn)}
+.badge.paid{color:#2d1d02;background:var(--skill)}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;margin:0;font-size:.92rem}
+.kv dt{color:var(--c);font-weight:700;white-space:nowrap}
+.kv dd{margin:0;color:var(--fg)}
+.kv code{font:500 .85rem var(--f-mono);color:var(--fg);background:var(--bg2);padding:1px 6px;border-radius:5px;white-space:nowrap}
+.alerts{display:flex;flex-direction:column;gap:8px}
+.alert{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;border:1px solid color-mix(in srgb,var(--c) 55%,transparent);background:color-mix(in srgb,var(--c) 12%,var(--panel))}
+.alert svg.i{color:var(--c);margin-top:2px}
+.alert b{color:var(--c)}
+
+/* orbit (project contents) */
+.orbit{position:relative;width:min(100%,380px);aspect-ratio:1;margin:0 auto}
+.orbit .ring{position:absolute;inset:12%;border-radius:50%;border:2px dashed color-mix(in srgb,var(--c) 45%,transparent);animation:spin 26s linear infinite}
+.orbit .ring::after{content:"";position:absolute;top:-7px;left:50%;width:12px;height:12px;border-radius:50%;background:var(--c);box-shadow:0 0 14px var(--c)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.orbit .core{position:absolute;inset:33%;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:2px;background:color-mix(in srgb,var(--c) 22%,var(--panel));border:2px solid var(--c)}
+.orbit .core svg.i{width:40px;height:40px;color:var(--c)}
+.orbit .core b{font:800 1.05rem var(--f-hand)}
+.sat{position:absolute;width:118px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 6px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);font-size:.88rem;font-weight:700;text-align:center}
+.sat svg.i{color:var(--c)}
+.sat.t{top:0;left:calc(50% - 59px)} .sat.r{right:0;top:calc(50% - 38px)} .sat.b{bottom:0;left:calc(50% - 59px)} .sat.l{left:0;top:calc(50% - 38px)}
+
+/* MCP architecture */
+.arch{display:grid;grid-template-columns:minmax(0,.8fr) 80px minmax(0,1.25fr) 96px minmax(0,1fr) 80px minmax(0,1fr);align-items:center;gap:6px}
+.node{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;padding:16px 10px;border-radius:14px;background:var(--panel);border:2px solid var(--c,var(--line));min-width:0}
+.node>svg.i{width:42px;height:42px;color:var(--c,var(--fg))}
+.node b{font-size:1.02rem}
+.node span{font-size:.82rem;color:var(--muted)}
+.node .inner{font:700 .78rem var(--f-mono);color:var(--mcp);border:1px dashed var(--mcp);border-radius:8px;padding:4px 8px}
+.node .stack{display:flex;gap:8px;color:var(--muted)}
+.wire{display:flex;flex-direction:column;gap:14px;font-size:.75rem;color:var(--muted);text-align:center}
+.lane{position:relative;height:3px;background:var(--line);border-radius:2px;overflow:visible}
+.lane i{position:absolute;top:50%;width:16px;height:8px;margin-top:-4px;border-radius:4px}
+.lane.req i{background:var(--project);box-shadow:0 0 10px var(--project);animation:req 2.4s ease-in-out infinite}
+.lane.res i{background:var(--mcp);box-shadow:0 0 10px var(--mcp);animation:res 2.4s ease-in-out 1.2s infinite}
+@keyframes req{0%{left:0;opacity:0}10%{opacity:1}90%{opacity:1}100%{left:calc(100% - 16px);opacity:0}}
+@keyframes res{0%{left:calc(100% - 16px);opacity:0}10%{opacity:1}90%{opacity:1}100%{left:0;opacity:0}}
+.wire em{font-style:normal}
+.wire .req-l{color:var(--project)} .wire .res-l{color:var(--mcp)}
+
+.caps .card{display:flex;flex-direction:column;gap:8px}
+.caps h3{margin:0;display:flex;align-items:center;gap:10px;font:800 1.3rem var(--f-display);color:var(--c)}
+.caps h3 svg.i{width:38px;height:38px;padding:7px;border-radius:10px;background:color-mix(in srgb,var(--c) 18%,transparent)}
+.caps p{margin:0}
+.caps .eg{font-size:.85rem;color:var(--muted)}
+.use{display:flex;flex-direction:column;gap:2px;padding:14px;border-radius:12px;background:var(--panel);border-top:3px solid var(--c)}
+.use b{font-size:1.05rem}
+.use span{font-size:.85rem;color:var(--muted)}
+
+.shield{display:flex;flex-direction:column;gap:8px}
+.shield li{list-style:none}
+.check{display:flex;gap:10px;align-items:center;padding:9px 12px;border-radius:10px;background:var(--panel);border:1px solid var(--line)}
+.check svg.i{color:var(--ok)}
+
+/* integration loop */
+.loopwrap{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;align-items:center}
+.loop{position:relative;width:min(100%,430px);aspect-ratio:1;margin:0 auto}
+.loop .track{position:absolute;inset:16%;border-radius:50%;border:3px solid var(--line)}
+.loop .runner{position:absolute;inset:16%;border-radius:50%;animation:spin 8s linear infinite}
+.loop .runner::after{content:"";position:absolute;top:-9px;left:calc(50% - 8px);width:16px;height:16px;border-radius:50%;background:var(--fg);box-shadow:0 0 18px var(--fg),0 0 4px var(--fg)}
+.loop .center{position:absolute;inset:32%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:2px;font-family:var(--f-hand);font-size:.95rem;line-height:1.35}
+.loop .center b{font-family:var(--f-display);font-size:1.05rem}
+.ln{position:absolute;width:150px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:3px;padding:10px 8px;border-radius:14px;background:var(--panel2);border:2px solid var(--c)}
+.ln .n{font:700 .8rem var(--f-mono);color:var(--c)}
+.ln b{font-size:.98rem}
+.ln span{font-size:.78rem;color:var(--muted);line-height:1.35}
+.ln.p1{top:0;left:calc(50% - 75px)} .ln.p2{right:0;top:calc(50% - 46px)} .ln.p3{bottom:0;left:calc(50% - 75px)} .ln.p4{left:0;top:calc(50% - 46px)}
+.combo{font:800 clamp(1.15rem,2.2vw,1.5rem) var(--f-display);line-height:1.5}
+.combo span{color:var(--c)}
+
+/* quiz */
+.quiz .card{display:flex;flex-direction:column;gap:12px}
+.quiz .q{font-family:var(--f-hand);font-size:1.12rem;margin:0}
+.opts{display:flex;gap:8px;flex-wrap:wrap}
+.opt{flex:1 1 80px;font:700 .95rem var(--f-display);padding:9px 8px;border-radius:10px;border:1px solid var(--line);background:var(--bg2);color:var(--muted);cursor:pointer;transition:all .3s}
+.opt:hover{color:var(--fg);border-color:var(--dim)}
+.scene.on .opt.right{animation:reveal .6s var(--ease) var(--rv,6s) both}
+@keyframes reveal{to{color:var(--bg);background:var(--c);border-color:var(--c);transform:scale(1.04)}}
+.quiz .card.done .opt.right{animation:none;color:var(--bg);background:var(--c);border-color:var(--c)}
+.quiz .card.done .opt.wrong{color:var(--warn);border-color:var(--warn);text-decoration:line-through}
+.why{font-size:.85rem;color:var(--muted);margin:0;opacity:0}
+.scene.on .why{animation:fade .6s ease var(--rv,6s) both}
+.quiz .card.done .why{animation:none;opacity:1}
+.oneline{text-align:center;font:800 clamp(1.05rem,2.2vw,1.45rem) var(--f-display);padding:16px;border-radius:14px;background:var(--panel);border:1px solid var(--line)}
+.oneline span{color:var(--c)}
+.replay{align-self:center;font:700 1rem var(--f-body);color:var(--bg);background:var(--fg);border:0;border-radius:999px;padding:10px 22px;cursor:pointer}
+
+/* dock */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:5;padding:0 16px calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,transparent,var(--bg) 26%)}
+.dock-in{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:10px;padding-top:30px}
+.cap{min-height:3.4em;font-family:var(--f-hand);font-size:clamp(1rem,1.7vw,1.18rem);line-height:1.6;color:var(--fg);padding:10px 16px;border-radius:12px;background:color-mix(in srgb,var(--panel) 92%,transparent);border:1px solid var(--line);backdrop-filter:blur(6px)}
+.cap .ghost{opacity:0}
+.bar{display:flex;align-items:center;gap:12px}
+.bar button{width:40px;height:40px;flex:none;border-radius:50%;border:1px solid var(--line);background:var(--panel);color:var(--fg);display:grid;place-items:center;cursor:pointer;transition:background .2s}
+.bar button:hover{background:var(--panel2)}
+.bar button.main{width:48px;height:48px;background:var(--fg);color:var(--bg);border-color:var(--fg)}
+.bar button.on{color:var(--bg);background:var(--mcp);border-color:var(--mcp)}
+.bar button svg.i{width:20px;height:20px}
+.segs{flex:1;display:flex;gap:4px;min-width:0}
+.bar button.seg{flex:1;width:auto;min-width:0;height:6px;border-radius:3px;background:var(--line);overflow:hidden;cursor:pointer;border:0;padding:0;display:block}
+.seg i{display:block;height:100%;width:0;background:var(--c,var(--fg))}
+.count{font:700 .85rem var(--f-mono);color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+@media (max-width:860px){
+  .grid3,.eqs{grid-template-columns:minmax(0,1fr)}
+  .grid4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .split,.loopwrap{grid-template-columns:minmax(0,1fr)}
+  .fan{grid-template-columns:minmax(0,1fr);justify-items:stretch}
+  .fan .hub{justify-self:center}
+  .wires{flex-direction:row;justify-content:center;height:44px}
+  .wires .arw,.vert{flex:0 0 3px;width:3px;min-width:3px;height:40px;background:linear-gradient(180deg,transparent,var(--c,var(--dim)))}
+  .wires .arw::before{right:auto;left:50%;top:auto;bottom:-2px;transform:translateX(-50%) rotate(135deg)}
+  .wires .arw::after{left:50%;margin-left:-5px;margin-top:0;animation-name:runY}
+  ol.steps{flex-direction:column;gap:10px}
+  ol.steps>li::after{display:none}
+  .arch{grid-template-columns:minmax(0,1fr)}
+  .wire{flex-direction:row;justify-content:center;gap:30px;height:70px}
+  .lane{width:3px;height:100%}
+  .lane i{left:50%!important;margin-left:-4px;width:8px;height:16px;top:0;margin-top:0}
+  .lane.req i{animation-name:reqY} .lane.res i{animation-name:resY}
+  .wire em{writing-mode:vertical-rl}
+  .stage{min-height:0}
+}
+@keyframes runY{from{top:0;opacity:0}15%{opacity:1}85%{opacity:1}to{top:calc(100% - 10px);opacity:0}}
+@keyframes reqY{0%{top:0;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:calc(100% - 16px);opacity:0}}
+@keyframes resY{0%{top:calc(100% - 16px);opacity:0}10%{opacity:1}90%{opacity:1}100%{top:0;opacity:0}}
+@media (max-width:520px){
+  .grid4{grid-template-columns:minmax(0,1fr)}
+  .sat{width:96px;font-size:.78rem} .sat.t,.sat.b{left:calc(50% - 48px)}
+  .ln{width:118px} .ln.p1,.ln.p3{left:calc(50% - 59px)} .ln span{display:none}
+  .trio .join{display:none} .trio{gap:10px}
+  .tile{width:calc(33% - 8px);min-width:96px;border-radius:16px} .tile svg.i{width:34px;height:34px} .tile span,.tile small{font-size:.72rem}
+  .count{display:none}
+  .bar{gap:8px}
+}
+@media (prefers-reduced-motion:reduce){
+  .scene.on,.scene.on .a,.scene.on .step .n{animation-duration:.01s!important;animation-delay:0s!important}
+  .arw::after,.lane i,.hub::after,.orbit .ring,.loop .runner,.glow{animation:none!important}
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-tool" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18M10 13v2h4v-2"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+    <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0zM12 17v4"/></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+    <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4M12 17h.01"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24"><rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 4v4M9 13h.01M15 13h.01M9.5 16h5M2 13v2M22 13v2"/></symbol>
+    <symbol id="i-server" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></symbol>
+    <symbol id="i-db" viewBox="0 0 24 24"><ellipse cx="12" cy="5.5" rx="8" ry="2.5"/><path d="M4 5.5v13c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5v-13M4 12c0 1.4 3.6 2.5 8 2.5s8-1.1 8-2.5"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.6-9A6 6 0 0 1 18 9.5a4.3 4.3 0 0 1-.5 8.5z"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/></symbol>
+    <symbol id="i-wrench" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0 5 5L21 13l-8 8-3-3 8-8M14.7 6.3 13 4.6a4 4 0 0 0-5 5L3 14.6 6.4 18"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.4 8 8 9 4.6-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></symbol>
+    <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></symbol>
+    <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/></symbol>
+    <symbol id="i-repeat" viewBox="0 0 24 24"><path d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01"/></symbol>
+    <symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z" fill="currentColor"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><path d="M7 4h3v16H7zM14 4h3v16h-3z" fill="currentColor"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24"><path d="m15 5-7 7 7 7"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></symbol>
+  </defs>
+</svg>
+
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand"><b>生成式 AI 在教師教學與學生學習的應用</b>　楊梅高中 施文賢</div>
+    <nav class="chaps" id="chaps" aria-label="章節">
+      <button data-go="0">總覽</button>
+      <button data-go="3" class="k-skill" style="--c:var(--skill)">技能 Skill</button>
+      <button data-go="7" style="--c:var(--project)">專案 Project</button>
+      <button data-go="10" style="--c:var(--mcp)">MCP</button>
+      <button data-go="14">整合與測驗</button>
+    </nav>
+  </header>
+
+  <main class="stage" id="stage" aria-live="polite">
+
+    <!-- 0 Title -->
+    <section class="scene s-title" data-ch="0" data-step=".32">
+      <p class="eyebrow a fade">Skill · Project · MCP</p>
+      <h1 class="a">AI 工具<em>三大核心</em></h1>
+      <div class="trio">
+        <div class="tile k-skill a fl"><svg class="i"><use href="#i-tool"/></svg><b>Skill</b><span>技能</span><small>怎麼做？</small></div>
+        <div class="join a grow"></div>
+        <div class="tile k-project a fb"><svg class="i"><use href="#i-folder"/></svg><b>Project</b><span>專案</span><small>在哪裡做？</small></div>
+        <div class="join a grow"></div>
+        <div class="tile k-mcp a fr"><svg class="i"><use href="#i-plug"/></svg><b>MCP</b><span>模型情境協定</span><small>連接什麼？</small></div>
+      </div>
+      <p class="lead a">把方法封裝、把工作集中、把外部能力接進來</p>
+      <p class="byline a fade">楊梅高中 施文賢</p>
+      <p class="narr">歡迎來到生成式 AI 工具的三大核心：技能 Skill、專案 Project 與 MCP。這三者像三塊拼圖，分別回答「怎麼做」、「在哪裡做」與「能連接什麼」。</p>
+    </section>
+
+    <!-- 1 Pillars -->
+    <section class="scene" data-ch="0" hidden>
+      <p class="eyebrow a">總覽 · 三個比喻</p>
+      <h2 class="a">從「會做什麼」到「在哪裡做」，再到「<em class="k-mcp" style="color:var(--mcp)">能連接什麼</em>」</h2>
+      <div class="grid3">
+        <article class="card tint pillar k-skill a flip">
+          <div class="hd"><svg class="i"><use href="#i-tool"/></svg><h3>技能 Skill<small>可重複使用的做事方法</small></h3></div>
+          <p class="meta">像一本標準作業手冊</p>
+          <ul class="dots"><li>定義步驟、規則與輸出格式</li><li>讓 AI 穩定完成特定任務</li><li>適合反覆套用與分享</li></ul>
+          <p class="ans">回答：<span>怎麼做？</span></p>
+        </article>
+        <article class="card tint pillar k-project a flip">
+          <div class="hd"><svg class="i"><use href="#i-folder"/></svg><h3>專案 Project<small>集中管理工作的專屬空間</small></h3></div>
+          <p class="meta">像一間有資料的工作室</p>
+          <ul class="dots"><li>收納對話、檔案與背景脈絡</li><li>維持長期任務的一致性</li><li>適合課程、研究與團隊工作</li></ul>
+          <p class="ans">回答：<span>在哪裡做？</span></p>
+        </article>
+        <article class="card tint pillar k-mcp a flip">
+          <div class="hd"><svg class="i"><use href="#i-plug"/></svg><h3>MCP<small>AI 與外部服務的通用連接方式</small></h3></div>
+          <p class="meta">像可插拔的萬用轉接器</p>
+          <ul class="dots"><li>串接資料庫、雲端與各種工具</li><li>讓 AI 查詢資料或執行動作</li><li>權限與連線設定要妥善管理</li></ul>
+          <p class="ans">回答：<span>連接什麼？</span></p>
+        </article>
+      </div>
+      <p class="narr">先用比喻認識它們。Skill 像一本標準作業手冊，把做事方法封裝起來；Project 像一間有資料的工作室，收納對話、檔案與背景；MCP 像可插拔的萬用轉接器，讓 AI 連上外部服務。</p>
+    </section>
+
+    <!-- 2 Compare -->
+    <section class="scene" data-ch="0" hidden>
+      <p class="eyebrow a">總覽 · 一句話分辨</p>
+      <div class="eqs">
+        <div class="eq k-skill a pop">Skill ＝ 方法</div>
+        <div class="eq k-project a pop">Project ＝ 工作空間</div>
+        <div class="eq k-mcp a pop">MCP ＝ 連接橋梁</div>
+      </div>
+      <div class="tbl-wrap a">
+        <table class="cmp">
+          <thead><tr><th>比較重點</th><th class="k-skill">Skill</th><th class="k-project">Project</th><th class="k-mcp">MCP</th></tr></thead>
+          <tbody>
+            <tr><th>核心角色</th><td>做事方法</td><td>工作空間</td><td>連接標準</td></tr>
+            <tr><th>主要內容</th><td>流程與規則</td><td>脈絡與檔案</td><td>工具與資料</td></tr>
+            <tr><th>適合情境</th><td>重複任務、固定格式、標準化產出</td><td>長期任務、多檔案、多人或多階段工作</td><td>查詢即時資料、跨系統讀寫與自動化</td></tr>
+            <tr><th>是否可組合</th><td>可放入 Project</td><td>可使用 Skill 與 MCP</td><td>可供 Project 呼叫</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="motto">
+        <div class="k-skill a fl">常常重複同一件事？<b>→ Skill</b></div>
+        <div class="k-project a fl">需要長期累積脈絡？<b>→ Project</b></div>
+        <div class="k-mcp a fl">需要連接外部系統？<b>→ MCP</b></div>
+      </div>
+      <p class="narr">一句話分辨：Skill 是方法，Project 是工作空間，MCP 是連接橋梁。三者不是互相取代，而是可以組合：Skill 可以放進 Project，Project 可以使用 Skill 與 MCP。</p>
+    </section>
+
+    <!-- 3 Skill definition -->
+    <section class="scene k-skill" data-ch="1" hidden>
+      <p class="eyebrow a">第一部分 · 技能 Skill</p>
+      <h2 class="a">把好方法變成<em>可重複使用的流程</em></h2>
+      <p class="lead a">技能是一套可被 AI 讀取的任務說明，讓相似工作依固定步驟產出。<strong>設定一次</strong>，AI 就在適合的任務中照同一套步驟工作。</p>
+      <div class="fan">
+        <div class="col">
+          <div class="pill a fl"><svg class="i"><use href="#i-cal"/></svg>適用時機</div>
+          <div class="pill a fl"><svg class="i"><use href="#i-list"/></svg>操作步驟</div>
+          <div class="pill a fl"><svg class="i"><use href="#i-layers"/></svg>參考資料</div>
+          <div class="pill a fl"><svg class="i"><use href="#i-doc"/></svg>輸出格式</div>
+        </div>
+        <div class="wires"><div class="arw a grow"></div><div class="arw a grow"></div></div>
+        <div class="hub a pop"><svg class="i"><use href="#i-tool"/></svg><b>一項技能</b><small>SKILL.md</small></div>
+        <div class="wires"><div class="arw a grow"></div><div class="arw a grow"></div></div>
+        <div class="col">
+          <div class="pill a fr"><svg class="i"><use href="#i-check"/></svg>穩定品質</div>
+          <div class="pill a fr"><svg class="i"><use href="#i-repeat"/></svg>節省重複說明</div>
+          <div class="pill a fr"><svg class="i"><use href="#i-share"/></svg>方便分享</div>
+        </div>
+      </div>
+      <p class="narr">技能是一套可被 AI 讀取的任務說明。把適用時機、操作步驟、參考資料與輸出格式封裝成一項技能，設定一次，就能穩定品質、節省重複說明，也方便分享給同事。</p>
+    </section>
+
+    <!-- 4 Skill folder -->
+    <section class="scene k-skill" data-ch="1" hidden data-step=".26">
+      <p class="eyebrow a">技能 Skill · 一個技能包含什麼？</p>
+      <h2 class="a">一個技能，就是<em>一個資料夾</em></h2>
+      <div class="split">
+        <div class="folder a fb" data-tab="my-lesson-skill/">
+          <div class="file">
+            <div class="doc">SKILL.md</div>
+            <ul class="dots">
+              <li class="a fr">名稱與用途</li>
+              <li class="a fr">觸發條件</li>
+              <li class="a fr">操作步驟</li>
+              <li class="a fr">輸出規格</li>
+            </ul>
+          </div>
+          <div class="attach">
+            <span class="a pop"><svg class="i"><use href="#i-doc"/></svg>參考資料（可選）</span>
+            <span class="a pop"><svg class="i"><use href="#i-layers"/></svg>範本（可選）</span>
+            <span class="a pop"><svg class="i"><use href="#i-gear"/></svg>程式腳本（可選）</span>
+          </div>
+          <p class="note" style="margin-top:12px">核心是清楚的指令與可執行流程。</p>
+        </div>
+        <div class="when">
+          <p class="eyebrow a" style="--c:var(--muted)">什麼時候該建立技能？</p>
+          <div class="card a fr"><svg class="i"><use href="#i-repeat"/></svg><div><b>重複任務</b><span>教案、學習單、題目設計</span></div></div>
+          <div class="card a fr"><svg class="i"><use href="#i-check"/></svg><div><b>統一品質</b><span>固定格式、檢核標準</span></div></div>
+          <div class="card a fr"><svg class="i"><use href="#i-users"/></svg><div><b>分享方法</b><span>團隊共備、讓不同教師沿用同一做法</span></div></div>
+        </div>
+      </div>
+      <div class="grid4">
+        <div class="use a up"><b>標準化</b><span>固定步驟與品質規範</span></div>
+        <div class="use a up"><b>自動化</b><span>減少重複操作與遺漏</span></div>
+        <div class="use a up"><b>專業化</b><span>套用領域知識與方法</span></div>
+        <div class="use a up"><b>可複用</b><span>一次設計，多次執行</span></div>
+      </div>
+      <p class="narr">一個技能其實就是一個資料夾。核心是 SKILL 點 md 檔，寫清楚名稱與用途、觸發條件、操作步驟與輸出規格；再視需要附上參考資料、範本或程式腳本。重複任務、統一品質、分享方法，都是建立技能的好時機。</p>
+    </section>
+
+    <!-- 5 Skill steps -->
+    <section class="scene k-skill" data-ch="1" hidden>
+      <p class="eyebrow a">技能 Skill · 建立與使用</p>
+      <h2 class="a">四個步驟，<em>做出一個好技能</em></h2>
+      <ol class="steps">
+        <li class="a fb"><div class="step"><span class="n">1</span><b>定義任務</b><span>對象、目標、輸入</span></div></li>
+        <li class="a fb"><div class="step"><span class="n">2</span><b>寫出步驟</b><span>規則、範例、例外</span></div></li>
+        <li class="a fb"><div class="step"><span class="n">3</span><b>測試修正</b><span>用真實題目檢查</span></div></li>
+        <li class="a fb"><div class="step"><span class="n">4</span><b>呼叫使用</b><span>提供主題與素材</span></div></li>
+      </ol>
+      <div class="example a">
+        <span class="tag">教學範例</span>
+        <span class="q">輸入：AI 生成內容是否應標示？</span><span class="arw"></span>
+        <span>技能：探究教學設計</span><span class="arw"></span>
+        <span>輸出：教案、學習任務、評量規準</span>
+      </div>
+      <div class="formula">
+        <span class="lhs a pop">好 Skill ＝</span>
+        <span class="t a pop">清楚任務</span><span class="plus a fade">＋</span>
+        <span class="t a pop">完整流程</span><span class="plus a fade">＋</span>
+        <span class="t a pop">明確規範</span><span class="plus a fade">＋</span>
+        <span class="t a pop">可驗證產出</span>
+      </div>
+      <p class="narr">建立技能有四個步驟：定義任務、寫出步驟、測試修正、呼叫使用。例如輸入「AI 生成內容是否應標示」，套用探究教學設計技能，就能產出教案、學習任務與評量規準。好技能要任務明確、步驟可操作、成果可驗證。</p>
+    </section>
+
+    <!-- 6 Skill platforms -->
+    <section class="scene k-skill" data-ch="1" hidden>
+      <p class="eyebrow a">技能 Skill · 三大平台</p>
+      <h2 class="a">三大 AI 技能<em>怎麼用？</em></h2>
+      <div class="grid3">
+        <article class="card plat a flip">
+          <h3>ChatGPT 技能 <span class="badge no">一般免費帳號未開放</span></h3>
+          <dl class="kv">
+            <dt>入口</dt><dd>側邊欄 <code>Plugins → Skills</code></dd>
+            <dt>建立</dt><dd>對話建立、編輯器建立，或從電腦上傳</dd>
+            <dt>使用</dt><dd>安裝後依任務自動選用一個或多個技能</dd>
+            <dt>資格</dt><dd>官方列出符合資格的 Business、Enterprise、Healthcare、Edu 工作區</dd>
+            <dt>適合</dt><dd>學校已有 ChatGPT Edu 等合格工作區，想統一教師工作流程</dd>
+          </dl>
+        </article>
+        <article class="card plat a flip">
+          <h3>Claude Skill <span class="badge yes">免費版可用</span></h3>
+          <dl class="kv">
+            <dt>入口</dt><dd><code>Customize → Skills</code></dd>
+            <dt>建立</dt><dd>撰寫 Skill 後以 ZIP 上傳（含 SKILL.md）；也可在對話中協助修改</dd>
+            <dt>使用</dt><dd>啟用後依需求自動選用，也能在提示中指定</dd>
+            <dt>條件</dt><dd>免費版須開啟「程式碼執行與檔案建立」</dd>
+            <dt>適合</dt><dd>想用免費帳號試作、上傳並反覆修訂教學 Skill</dd>
+          </dl>
+        </article>
+        <article class="card plat a flip">
+          <h3>Gemini Spark 技能 <span class="badge paid">需 Pro／Ultra</span></h3>
+          <dl class="kv">
+            <dt>入口</dt><dd>gemini.google.com 側邊欄 <code>Switch to Spark → Skills</code></dd>
+            <dt>建立</dt><dd>透過 Gemini 建立、套用範本、手動建立或上傳</dd>
+            <dt>使用</dt><dd>可自動選用；在任務輸入框鍵入 / 指定技能</dd>
+            <dt>資格</dt><dd>年滿 18 歲、個人 Google 帳號、訂閱 Pro／Ultra 並開啟「保留活動紀錄」</dd>
+            <dt>適合</dt><dd>已訂閱 Google AI Pro／Ultra，想讓技能配合 Spark 任務運作</dd>
+          </dl>
+        </article>
+      </div>
+      <div class="alerts">
+        <div class="alert k-warn a fl"><svg class="i"><use href="#i-warn"/></svg><div><b>學校 Google 帳號</b>目前無法使用 Spark 技能。</div></div>
+        <div class="alert k-skill a fl"><svg class="i"><use href="#i-warn"/></svg><div><b>ChatGPT</b> 網頁版技能與 Codex Skill 的資格要分開看。</div></div>
+      </div>
+      <p class="note a fade">依三平台官方說明整理｜2026.09.25｜功能依帳號與地區而異</p>
+      <p class="narr">三大平台的技能入口各不相同。ChatGPT 在側邊欄 Plugins 的 Skills，一般免費帳號尚未開放；Claude 在 Customize 的 Skills，免費版可用，但須開啟程式碼執行與檔案建立；Gemini Spark 需要 Google AI Pro 或 Ultra，學校 Google 帳號目前無法使用。</p>
+    </section>
+
+    <!-- 7 Project definition -->
+    <section class="scene k-project" data-ch="2" hidden>
+      <p class="eyebrow a">第二部分 · 專案 Project</p>
+      <h2 class="a">讓長期任務<em>有自己的工作區</em></h2>
+      <p class="lead a">把同一主題的資料、對話與工作規則集中整理，讓<strong>每次提問都有共同脈絡</strong>。像一個會記住脈絡的智慧資料夾。</p>
+      <div class="fan">
+        <div class="col">
+          <div class="pill a fl"><svg class="i"><use href="#i-doc"/></svg>教材檔案</div>
+          <div class="pill a fl"><svg class="i"><use href="#i-list"/></svg>專案指示</div>
+          <div class="pill a fl"><svg class="i"><use href="#i-chat"/></svg>歷次討論</div>
+        </div>
+        <div class="wires"><div class="arw a grow"></div><div class="arw a grow"></div></div>
+        <div class="hub a pop"><svg class="i"><use href="#i-folder"/></svg><b>一個教學主題</b><small>專案工作區</small></div>
+        <div class="wires"><div class="arw a grow"></div><div class="arw a grow"></div></div>
+        <div class="col">
+          <div class="pill a fr"><svg class="i"><use href="#i-doc"/></svg>教案</div>
+          <div class="pill a fr"><svg class="i"><use href="#i-list"/></svg>學習單</div>
+          <div class="pill a fr"><svg class="i"><use href="#i-check"/></svg>評量</div>
+        </div>
+      </div>
+      <div class="grid3">
+        <div class="use a up"><b>同一單元需要多次備課</b><span>持續數週的課程設計</span></div>
+        <div class="use a up"><b>持續增補教材與資料</b><span>反覆修訂的教材製作</span></div>
+        <div class="use a up"><b>與同事協作並保存成果</b><span>多人共備的主題研究</span></div>
+      </div>
+      <p class="narr">專案讓長期任務有自己的工作區。把教材檔案、專案指示與歷次討論集中在一個教學主題裡，每次提問都有共同脈絡，持續產出教案、學習單與評量。它就像一個會記住脈絡的智慧資料夾。</p>
+    </section>
+
+    <!-- 8 Project contents & steps -->
+    <section class="scene k-project" data-ch="2" hidden data-step=".26">
+      <p class="eyebrow a">專案 Project · 包含什麼、怎麼用</p>
+      <h2 class="a">Project ＝ 有共同目標的<em>AI 專屬工作空間</em></h2>
+      <div class="split">
+        <div class="orbit a pop">
+          <div class="ring"></div>
+          <div class="core"><svg class="i"><use href="#i-folder"/></svg><b>專案工作區</b></div>
+          <div class="sat t"><svg class="i"><use href="#i-flag"/></svg>專案目標</div>
+          <div class="sat r"><svg class="i"><use href="#i-list"/></svg>固定指示</div>
+          <div class="sat b"><svg class="i"><use href="#i-doc"/></svg>參考檔案</div>
+          <div class="sat l"><svg class="i"><use href="#i-chat"/></svg>相關對話</div>
+        </div>
+        <div class="when">
+          <p class="eyebrow a" style="--c:var(--muted)">使用要訣</p>
+          <div class="card a fr"><svg class="i"><use href="#i-target"/></svg><div><b>一個專案聚焦一個明確目標</b><span>例：「AI 生成內容是否應標示？」</span></div></div>
+          <div class="card a fr"><svg class="i"><use href="#i-list"/></svg><div><b>重要規則寫入專案指令</b><span>對象、語氣、格式與要求</span></div></div>
+          <div class="card a fr"><svg class="i"><use href="#i-repeat"/></svg><div><b>定期整理檔案與版本</b><span>對話、檢查、更新成果</span></div></div>
+        </div>
+      </div>
+      <ol class="steps">
+        <li class="a fb"><div class="step"><span class="n">1</span><b>建立專案</b><span>命名並寫清目標</span></div></li>
+        <li class="a fb"><div class="step"><span class="n">2</span><b>加入資料</b><span>上傳檔案與參考內容</span></div></li>
+        <li class="a fb"><div class="step"><span class="n">3</span><b>設定指令</b><span>定義角色、語氣與格式</span></div></li>
+        <li class="a fb"><div class="step"><span class="n">4</span><b>開始對話</b><span>分階段完成任務</span></div></li>
+        <li class="a fb"><div class="step"><span class="n">5</span><b>持續迭代</b><span>更新資料、檢查與優化</span></div></li>
+      </ol>
+      <p class="narr">一個專案包含專案目標、固定指示、參考檔案與相關對話。使用時依序建立專案、加入資料、設定指令、開始對話、持續迭代。記得一個專案聚焦一個明確目標，重要規則寫入專案指令，並定期整理檔案與版本。</p>
+    </section>
+
+    <!-- 9 Project platforms -->
+    <section class="scene k-project" data-ch="2" hidden>
+      <p class="eyebrow a">專案 Project · 三大平台</p>
+      <h2 class="a">三大 AI 專案<em>怎麼選？</em></h2>
+      <div class="grid3">
+        <article class="card plat a flip">
+          <h3>ChatGPT 專案 <span class="badge yes">免費可用</span></h3>
+          <dl class="kv">
+            <dt>入口</dt><dd>側邊欄 <code>新增專案</code></dd>
+            <dt>核心</dt><dd>集中對話、檔案與專案指示，持續處理同一主題</dd>
+            <dt>免費</dt><dd>專案數不限；每個專案最多 5 個檔案</dd>
+            <dt>指示</dt><dd>可在「專案設定」加入，只適用於該專案</dd>
+            <dt>分享</dt><dd>免費版可分享，最多 5 位協作者</dd>
+          </dl>
+        </article>
+        <article class="card plat a flip">
+          <h3>Claude Project <span class="badge yes">免費最多 5 個</span></h3>
+          <dl class="kv">
+            <dt>入口</dt><dd><code>Projects → + New Project</code> 或 claude.ai/projects</dd>
+            <dt>核心</dt><dd>專案知識庫供各段對話使用；未加入知識庫的資訊不會自動共用</dd>
+            <dt>擴充</dt><dd>付費方案的知識庫內容量增加時可使用 RAG 擴充</dd>
+            <dt>分享</dt><dd>以 Team／Enterprise 為主，受管理員設定影響</dd>
+          </dl>
+        </article>
+        <article class="card plat a flip">
+          <h3>Drive 的 Gemini 專案 <span class="badge paid">需合格方案</span></h3>
+          <dl class="kv">
+            <dt>入口</dt><dd>Google 雲端硬碟左上角 <code>新增 → 新增專案</code></dd>
+            <dt>核心</dt><dd>固定一組 Drive 檔案、資料夾或 Gmail 郵件作為來源，原檔不搬家</dd>
+            <dt>資格</dt><dd>需合格的 Google Workspace 或 Google AI 方案</dd>
+            <dt>分享</dt><dd>來源清單可分享；協作者仍須有原檔的 Drive 權限</dd>
+          </dl>
+        </article>
+      </div>
+      <div class="alerts">
+        <div class="alert k-project a fl"><svg class="i"><use href="#i-chat"/></svg><div><b>ChatGPT／Claude：</b>以對話與知識庫持續工作。<b style="color:var(--ok)">Google Drive：</b>以既有雲端資料作研究基礎。</div></div>
+        <div class="alert k-warn a fl"><svg class="i"><use href="#i-warn"/></svg><div><b>分享前</b>確認檔案權限與學生資料；各平台功能依方案與帳號設定而異。</div></div>
+      </div>
+      <p class="narr">三大平台的專案怎麼選？ChatGPT 專案免費可用，每個專案最多五個檔案；Claude Project 免費版最多建立五個專案，以知識庫供多次對話使用；Google Drive 的 Gemini 專案以雲端檔案為來源，需要合格方案。分享前，務必確認檔案權限與學生資料。</p>
+    </section>
+
+    <!-- 10 MCP architecture -->
+    <section class="scene k-mcp" data-ch="3" hidden data-step=".3">
+      <p class="eyebrow a">第三部分 · MCP</p>
+      <h2 class="a">讓 AI <em>安全連接</em>外部工具與資料</h2>
+      <p class="lead a"><strong>Model Context Protocol（模型情境協定）</strong>是 AI 應用與外部服務溝通的開放標準：一次連接，讓 AI 在授權範圍內使用外部能力。</p>
+      <div class="arch">
+        <div class="node a fl" style="--c:var(--dim)"><svg class="i"><use href="#i-user"/></svg><b>使用者</b><span>提出任務<br>例：整理課程資料</span></div>
+        <div class="wire a fade"><em class="req-l">任務</em><div class="lane req"><i></i></div><div class="lane res"><i></i></div><em class="res-l">回覆</em></div>
+        <div class="node a pop" style="--c:var(--project)"><svg class="i"><use href="#i-bot"/></svg><b>AI 應用（Host）</b><span class="inner">內含 MCP 用戶端</span><span>理解需求、規劃工具、整合結果</span></div>
+        <div class="wire a fade"><em class="req-l">請求</em><div class="lane req"><i></i></div><div class="lane res"><i></i></div><em class="res-l">結果</em></div>
+        <div class="node a pop" style="--c:var(--mcp)"><svg class="i"><use href="#i-server"/></svg><b>MCP 伺服器</b><span>提供標準介面<br>控管存取與操作</span></div>
+        <div class="wire a fade"><em class="req-l">存取</em><div class="lane req"><i></i></div><div class="lane res"><i></i></div><em class="res-l">資料</em></div>
+        <div class="node a fr" style="--c:var(--skill)"><b>外部服務／資料</b><div class="stack"><svg class="i"><use href="#i-cloud"/></svg><svg class="i"><use href="#i-db"/></svg><svg class="i"><use href="#i-cal"/></svg></div><span>雲端檔案、學籍資料庫、行事曆</span></div>
+      </div>
+      <p class="note a fade">MCP 定義連線方式；實際功能取決於連接的伺服器與授權。</p>
+      <p class="narr">MCP 是 Model Context Protocol，模型情境協定，是 AI 應用與外部服務溝通的開放標準。使用者提出任務，AI 應用透過內建的 MCP 用戶端向 MCP 伺服器發出請求，伺服器再存取雲端檔案、資料庫或行事曆，把結果送回來。</p>
+    </section>
+
+    <!-- 11 MCP capabilities -->
+    <section class="scene k-mcp" data-ch="3" hidden>
+      <p class="eyebrow a">MCP · 伺服器提供三類能力</p>
+      <h2 class="a">工具、資源、提示：<em>MCP 的三種能力</em></h2>
+      <div class="grid3 caps">
+        <article class="card k-mcp a flip"><h3><svg class="i"><use href="#i-wrench"/></svg>工具 Tools</h3><p>查詢、計算或執行動作</p><p class="eg">例：搜尋檔案、建立行事曆活動</p></article>
+        <article class="card k-project a flip"><h3><svg class="i"><use href="#i-doc"/></svg>資源 Resources</h3><p>讀取可用的內容與背景資料</p><p class="eg">例：教材文件、資料紀錄</p></article>
+        <article class="card k-skill a flip"><h3><svg class="i"><use href="#i-bulb"/></svg>提示 Prompts</h3><p>提供可重用的任務範本</p><p class="eg">例：固定格式的分析提問</p></article>
+      </div>
+      <p class="eyebrow a">主要用途</p>
+      <div class="grid4">
+        <div class="use a up"><b>取得資料</b><span>搜尋文件與即時資訊</span></div>
+        <div class="use a up"><b>執行工具</b><span>查詢、建立、更新內容</span></div>
+        <div class="use a up"><b>整合系統</b><span>串接不同平台與服務</span></div>
+        <div class="use a up"><b>降低開發</b><span>同一規格，重複使用</span></div>
+      </div>
+      <p class="narr">MCP 伺服器可提供三類能力：工具 Tools 用來查詢或執行操作；資源 Resources 提供可讀取的背景資料；提示 Prompts 提供可重用的任務範本。好處是取得資料、執行工具、整合系統，並以同一規格降低開發成本。</p>
+    </section>
+
+    <!-- 12 MCP flow & safety -->
+    <section class="scene k-mcp" data-ch="3" hidden data-step=".24">
+      <p class="eyebrow a">MCP · 使用流程與安全</p>
+      <h2 class="a">六步驟使用 MCP，<em>授權先想清楚</em></h2>
+      <ol class="steps">
+        <li class="a fb"><div class="step"><span class="n">1</span><b>選擇 MCP Server</b><span>確認來源與用途</span></div></li>
+        <li class="a fb"><div class="step"><span class="n">2</span><b>連線並授權</b><span>設定可存取範圍</span></div></li>
+        <li class="a fb"><div class="step"><span class="n">3</span><b>AI 發現能力</b><span>列出可用工具</span></div></li>
+        <li class="a fb"><div class="step"><span class="n">4</span><b>提出需求</b><span>AI 選用合適工具</span></div></li>
+        <li class="a fb"><div class="step"><span class="n">5</span><b>確認後執行</b><span>重要操作先確認</span></div></li>
+        <li class="a fb"><div class="step"><span class="n">6</span><b>回傳結果</b><span>核對資料與執行紀錄</span></div></li>
+      </ol>
+      <div class="split">
+        <div class="example a">
+          <span class="tag">高中教學範例</span>
+          <span class="q">教師提問：整理圖書館新書清單並製作書展摘要</span>
+          <span class="arw"></span><span>AI 應用</span><span class="arw"></span><span>MCP 服務</span><span class="arw"></span><span>讀取授權清單</span><span class="arw"></span><span>產出摘要</span>
+        </div>
+        <ul class="shield" style="padding:0;margin:0">
+          <li class="check a fr"><svg class="i"><use href="#i-shield"/></svg>只連接可信任來源</li>
+          <li class="check a fr"><svg class="i"><use href="#i-shield"/></svg>採最小權限原則，只開啟必要權限</li>
+          <li class="check a fr"><svg class="i"><use href="#i-shield"/></svg>修改、寫入或分享資料前，先檢查操作內容</li>
+        </ul>
+      </div>
+      <p class="narr">使用流程是：選擇 MCP Server、連線並授權、讓 AI 發現可用能力、提出需求、確認後執行、回傳結果。例如請 AI 整理圖書館新書清單並製作書展摘要。使用前請記得：只連可信任來源、採最小權限、重要操作先確認。</p>
+    </section>
+
+    <!-- 13 MCP platforms -->
+    <section class="scene k-mcp" data-ch="3" hidden>
+      <p class="eyebrow a">MCP · 三大平台</p>
+      <h2 class="a">三大平台的 MCP：<em>怎麼連？免費能用嗎？</em></h2>
+      <div class="grid3">
+        <article class="card plat a flip">
+          <h3>ChatGPT MCP App <span class="badge no">Free 不可加入</span></h3>
+          <dl class="kv">
+            <dt>入口</dt><dd><code>Settings／Workspace settings → Apps → Create</code>，須先啟用開發者模式</dd>
+            <dt>Pro</dt><dd>可在開發者模式連接具讀取／擷取權限的 MCP</dd>
+            <dt>讀寫</dt><dd>完整寫入與修改功能目前在 Business、Enterprise、Edu 測試推出</dd>
+            <dt>連線</dt><dd>連接遠端 MCP 伺服器；本機伺服器不能直接連接</dd>
+          </dl>
+        </article>
+        <article class="card plat a flip">
+          <h3>Claude 自訂連接器 <span class="badge yes">Free 可加 1 個</span></h3>
+          <dl class="kv">
+            <dt>入口</dt><dd><code>Customize → Connectors → ＋ → Add custom connector</code></dd>
+            <dt>提供</dt><dd>遠端 MCP 伺服器網址；需要時設定 OAuth</dd>
+            <dt>使用</dt><dd>對話中以 <code>＋ → Connectors</code> 開啟</dd>
+            <dt>團隊</dt><dd>擁有者先在組織加入，成員再各自連接並授權</dd>
+          </dl>
+        </article>
+        <article class="card plat a flip">
+          <h3>Gemini Spark 自訂 App <span class="badge paid">需 Pro／Ultra</span></h3>
+          <dl class="kv">
+            <dt>入口</dt><dd><code>Settings → Connected Apps → Custom apps</code></dd>
+            <dt>加入</dt><dd>輸入 MCP 伺服器網址，依畫面完成連結與授權</dd>
+            <dt>使用</dt><dd>在對話輸入 <code>@</code> 指定自訂 App</dd>
+            <dt>帳號</dt><dd>需個人 Google 帳號</dd>
+          </dl>
+        </article>
+      </div>
+      <div class="alerts">
+        <div class="alert k-warn a fl"><svg class="i"><use href="#i-warn"/></svg><div><b>臺灣使用提醒：</b>Google 的自訂 MCP App 目前官方列為限美國、限英文；能用 Spark 不代表能加入自訂 MCP。</div></div>
+        <div class="alert k-warn a fl"><svg class="i"><use href="#i-warn"/></svg><div><b>學校 Google 帳號</b>目前不支援自訂 App；第三方 MCP 連接前應確認資料與操作權限。</div></div>
+      </div>
+      <p class="note a fade">依 OpenAI、Anthropic、Google 官方說明整理｜2026.09.25｜供應情況可能變動</p>
+      <p class="narr">各平台加入 MCP 的條件不同。ChatGPT 免費版不能加入自訂 MCP；Claude 免費版可加入一個遠端自訂連接器；Gemini Spark 需要 Pro 或 Ultra。在臺灣要特別注意，Google 的自訂 MCP App 目前官方列為限美國、限英文，學校 Google 帳號也不支援。</p>
+    </section>
+
+    <!-- 14 Integration -->
+    <section class="scene" data-ch="4" hidden data-step=".32">
+      <p class="eyebrow a">整合 · 三者如何協作</p>
+      <h2 class="a">不是三選一，<em style="color:var(--mcp)">而是彼此組合</em></h2>
+      <div class="loopwrap">
+        <div class="loop a pop">
+          <div class="track"></div><div class="runner"></div>
+          <div class="center"><b>持續</b><b>循環改進</b></div>
+          <div class="ln p1 k-project"><span class="n">01</span><b>建立 Project</b><span>設定目標與保存素材</span></div>
+          <div class="ln p2 k-skill"><span class="n">02</span><b>套用 Skill</b><span>依標準流程處理任務</span></div>
+          <div class="ln p3 k-mcp"><span class="n">03</span><b>透過 MCP</b><span>取得外部資料或執行操作</span></div>
+          <div class="ln p4 k-project"><span class="n">04</span><b>回到 Project</b><span>保存成果並持續改進</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+          <p class="eyebrow a">最佳組合</p>
+          <p class="combo a" style="margin:0"><span class="k-project">Project</span> 管脈絡<br>＋ <span class="k-skill">Skill</span> 管方法<br>＋ <span class="k-mcp">MCP</span> 管連接</p>
+          <p class="lead a">在 Project 中管理任務，用 Skill 執行標準流程，再透過 MCP 取得資料與操作工具。先確認需求，再選擇工具。</p>
+        </div>
+      </div>
+      <p class="narr">三者如何協作？先建立 Project，設定目標與保存素材；再套用 Skill，依標準流程處理任務；需要外部資料時透過 MCP 取得；最後回到 Project 保存成果並持續改進。Project 管脈絡、Skill 管方法、MCP 管連接。</p>
+    </section>
+
+    <!-- 15 Quiz -->
+    <section class="scene" data-ch="4" hidden data-step=".3">
+      <p class="eyebrow a">小測驗 · 選對工具</p>
+      <h2 class="a">這個情境，<em style="color:var(--skill)">該用哪一個？</em></h2>
+      <div class="grid3 quiz">
+        <article class="card a flip k-skill" style="--rv:4.2s">
+          <p class="q">每次出學習單都要同樣的格式、題型比例與評量規準。</p>
+          <div class="opts"><button class="opt right">Skill</button><button class="opt">Project</button><button class="opt">MCP</button></div>
+          <p class="why">固定做法要重複使用 → 封裝成技能。</p>
+        </article>
+        <article class="card a flip k-project" style="--rv:6.4s">
+          <p class="q">一個進行六週的探究專題，要持續累積教材、新聞與討論紀錄。</p>
+          <div class="opts"><button class="opt">Skill</button><button class="opt right">Project</button><button class="opt">MCP</button></div>
+          <p class="why">長期累積脈絡 → 建立專案工作區。</p>
+        </article>
+        <article class="card a flip k-mcp" style="--rv:8.6s">
+          <p class="q">希望 AI 直接讀取雲端硬碟裡的教材，並在行事曆建立活動。</p>
+          <div class="opts"><button class="opt">Skill</button><button class="opt">Project</button><button class="opt right">MCP</button></div>
+          <p class="why">連接外部服務與執行操作 → 透過 MCP。</p>
+        </article>
+      </div>
+      <div class="oneline a">一句話辨識：<span class="k-mcp">MCP</span> 連接外部能力；<span class="k-skill">Skill</span> 規範工作方法；<span class="k-project">Project</span> 管理長期脈絡。</div>
+      <button class="replay a fade" id="replay" type="button">從頭再看一次</button>
+      <p class="narr">最後來個小測驗：看看每個情境該選哪一個工具。記住口訣：想固定做法選 Skill，想累積脈絡選 Project，想連接外部服務選 MCP。善用組合，讓 AI 成為你的好夥伴。</p>
+    </section>
+  </main>
+</div>
+
+<div class="dock">
+  <div class="dock-in">
+    <div class="cap" id="cap" aria-live="off"></div>
+    <div class="bar">
+      <button id="prev" type="button" aria-label="上一段"><svg class="i"><use href="#i-prev"/></svg></button>
+      <button id="play" class="main" type="button" aria-label="暫停"><svg class="i"><use href="#i-pause"/></svg></button>
+      <button id="next" type="button" aria-label="下一段"><svg class="i"><use href="#i-next"/></svg></button>
+      <div class="segs" id="segs"></div>
+      <span class="count" id="count">01 / 16</span>
+      <button id="voice" type="button" aria-label="語音旁白" title="語音旁白（點擊開啟）"><svg class="i"><use href="#i-sound"/></svg></button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const stage=document.getElementById('stage');
+  const scenes=[...stage.querySelectorAll('.scene')];
+  const cap=document.getElementById('cap');
+  const segs=document.getElementById('segs');
+  const count=document.getElementById('count');
+  const playBtn=document.getElementById('play');
+  const voiceBtn=document.getElementById('voice');
+  const chapBtns=[...document.querySelectorAll('#chaps button')];
+  const chColor=['var(--fg)','var(--skill)','var(--project)','var(--mcp)','var(--fg)'];
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // stagger delays + per-scene duration
+  const info=scenes.map(s=>{
+    const step=parseFloat(s.dataset.step||'.28');
+    let d=.15, last=0;
+    s.querySelectorAll('.a').forEach(el=>{el.style.setProperty('--d',d.toFixed(2)+'s');last=d;d+=step});
+    let maxRv=0; s.querySelectorAll('[style*="--rv"]').forEach(el=>{maxRv=Math.max(maxRv,parseFloat(el.style.getPropertyValue('--rv'))||0)});
+    const text=(s.querySelector('.narr')||{}).textContent||'';
+    const dur=Math.max(last+.9+5, maxRv+4, text.length*.2+3)*1000;
+    return {text,dur,ch:+s.dataset.ch};
+  });
+
+  info.forEach((inf,i)=>{
+    const b=document.createElement('button');b.className='seg';b.type='button';b.setAttribute('aria-label','第 '+(i+1)+' 段');
+    b.style.setProperty('--c',chColor[inf.ch]);b.innerHTML='<i></i>';b.onclick=()=>go(i);segs.appendChild(b);
+  });
+  const fills=[...segs.querySelectorAll('i')];
+
+  let cur=0,t=0,playing=true,lastNow=performance.now(),shown=-1,ended=false;
+  let voice=false,speaking=false,speechDone=true,zhVoice=null;
+
+  function pickVoice(){
+    if(!('speechSynthesis' in window))return;
+    const vs=speechSynthesis.getVoices();
+    zhVoice=vs.find(v=>/zh[-_]TW/i.test(v.lang))||vs.find(v=>/zh[-_]HK/i.test(v.lang))||vs.find(v=>/^zh/i.test(v.lang))||null;
+  }
+  if('speechSynthesis' in window){pickVoice();speechSynthesis.onvoiceschanged=pickVoice}
+
+  function speak(text){
+    if(!voice||!('speechSynthesis' in window))return;
+    speechSynthesis.cancel();
+    const parts=text.split(/(?<=[。！？；])/).map(s=>s.trim()).filter(Boolean);
+    speechDone=false;speaking=true;
+    parts.forEach((p,k)=>{
+      const u=new SpeechSynthesisUtterance(p.replace(/SKILL 點 md/g,'SKILL 點 M D'));
+      u.lang='zh-TW';if(zhVoice)u.voice=zhVoice;u.rate=1.05;
+      if(k===parts.length-1){u.onend=u.onerror=()=>{speechDone=true;speaking=false}}
+      speechSynthesis.speak(u);
+    });
+  }
+  function stopSpeech(){if('speechSynthesis' in window)speechSynthesis.cancel();speechDone=true;speaking=false}
+
+  function setCaption(n){
+    const s=info[cur].text;
+    if(n===shown)return;shown=n;
+    cap.innerHTML='';const a=document.createElement('span');a.textContent=s.slice(0,n);
+    const g=document.createElement('span');g.className='ghost';g.textContent=s.slice(n);
+    cap.append(a,g);
+  }
+
+  function go(i){
+    i=Math.max(0,Math.min(scenes.length-1,i));
+    scenes[cur].classList.remove('on');scenes[cur].hidden=true;
+    scenes[cur].querySelectorAll('.quiz .card').forEach(c=>{c.classList.remove('done');c.querySelectorAll('.opt').forEach(o=>o.classList.remove('wrong'))});
+    cur=i;t=0;shown=-1;ended=false;
+    const s=scenes[cur];s.hidden=false;void s.offsetWidth;s.classList.add('on');
+    fills.forEach((f,k)=>f.style.width=k<cur?'100%':'0%');
+    count.textContent=String(cur+1).padStart(2,'0')+' / '+scenes.length;
+    const ch=info[cur].ch;
+    chapBtns.forEach((b,k)=>{b.classList.toggle('cur',k===ch);b.style.setProperty('--c',chColor[k])});
+    if(cur>0)window.scrollTo({top:0,behavior:reduce?'auto':'smooth'});
+    if(voice&&playing)speak(info[cur].text);else stopSpeech();
+  }
+
+  function setPlaying(p){
+    playing=p;stage.classList.toggle('paused',!p);
+    playBtn.innerHTML='<svg class="i"><use href="#i-'+(p?'pause':'play')+'"/></svg>';
+    playBtn.setAttribute('aria-label',p?'暫停':'播放');
+    if('speechSynthesis' in window&&voice){if(p){if(speaking)speechSynthesis.resume();else if(!speechDone||t<500)speak(info[cur].text)}else speechSynthesis.pause()}
+  }
+
+  function loop(now){
+    const dt=Math.min(100,now-lastNow);lastNow=now;
+    if(playing&&!ended){
+      t+=dt;
+      const dur=info[cur].dur;
+      fills[cur].style.width=Math.min(100,t/dur*100)+'%';
+      const len=info[cur].text.length;
+      setCaption(Math.min(len,Math.floor(len*Math.min(1,t/(dur*.82)))));
+      if(t>=dur&&(!voice||speechDone)){
+        if(cur<scenes.length-1)go(cur+1);else{ended=true;setPlaying(false)}
+      }
+    }
+    requestAnimationFrame(loop);
+  }
+
+  playBtn.onclick=()=>{if(ended){go(0);setPlaying(true)}else setPlaying(!playing)};
+  document.getElementById('prev').onclick=()=>go(cur-1);
+  document.getElementById('next').onclick=()=>go(cur+1);
+  document.getElementById('replay').onclick=()=>{go(0);setPlaying(true)};
+  chapBtns.forEach(b=>b.onclick=()=>go(+b.dataset.go));
+  voiceBtn.onclick=()=>{
+    if(!('speechSynthesis' in window))return;
+    voice=!voice;voiceBtn.classList.toggle('on',voice);voiceBtn.title=voice?'語音旁白：開':'語音旁白：關';
+    if(voice&&playing)speak(info[cur].text);else stopSpeech();
+  };
+  document.addEventListener('keydown',e=>{
+    if(e.target.closest&&e.target.closest('input,textarea'))return;
+    if(e.key===' '){e.preventDefault();playBtn.click()}
+    else if(e.key==='ArrowRight')go(cur+1);
+    else if(e.key==='ArrowLeft')go(cur-1);
+  });
+  // quiz: viewers can answer themselves
+  document.querySelectorAll('.quiz .card').forEach(card=>{
+    card.querySelectorAll('.opt').forEach(o=>o.onclick=()=>{
+      card.classList.add('done');
+      card.querySelectorAll('.opt').forEach(x=>x.classList.remove('wrong'));
+      if(!o.classList.contains('right'))o.classList.add('wrong');
+    });
+  });
+
+  scenes[0].classList.add('on');
+  go(0);
+  requestAnimationFrame(loop);
+
+  // ambient network background
+  const cv=document.getElementById('fx'),ctx=cv.getContext('2d');
+  const cols=['246,168,48','91,149,255','47,208,176'];
+  let W,H,pts=[];
+  function size(){
+    const r=devicePixelRatio||1;W=innerWidth;H=innerHeight;cv.width=W*r;cv.height=H*r;ctx.setTransform(r,0,0,r,0,0);
+    const n=Math.round(Math.min(46,W*H/26000));
+    pts=Array.from({length:n},(_,k)=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25,c:cols[k%3],r:1+Math.random()*2}));
+  }
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(let i=0;i<pts.length;i++){
+      const p=pts[i];
+      if(!reduce&&playing){p.x+=p.vx;p.y+=p.vy;if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1}
+      for(let j=i+1;j<pts.length;j++){
+        const q=pts[j],dx=p.x-q.x,dy=p.y-q.y,d=dx*dx+dy*dy;
+        if(d<20000){ctx.strokeStyle='rgba('+p.c+','+(0.16*(1-d/20000))+')';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(q.x,q.y);ctx.stroke()}
+      }
+      ctx.fillStyle='rgba('+p.c+',.7)';ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();
+    }
+    if(!reduce)requestAnimationFrame(draw);
+  }
+  size();addEventListener('resize',size);draw();
+})();
+</script>
